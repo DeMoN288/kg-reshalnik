@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Решатель КГ</title>
+<title>Решатель КГ (подробно)</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #121212; color: #eee; margin: 0; padding: 14px; }
   .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
@@ -17,7 +17,7 @@
   .b { flex: 1; min-width: 60px; padding: 10px; border: 1px solid #333; border-radius: 8px; background: #262626; color: #fff; font-size: 15px; cursor: pointer; }
   .b.sel { background: #10b981; border-color: #10b981; color: #000; font-weight: bold; }
   .go { width: 100%; padding: 13px; border: none; border-radius: 10px; background: #f59e0b; color: #000; font-size: 17px; font-weight: bold; cursor: pointer; margin-top: 4px; }
-  pre { background: #0d0d0d; padding: 12px; border-radius: 10px; white-space: pre-wrap; font-size: 13px; line-height: 1.45; margin-top: 12px; border: 1px solid #2b2b2b; }
+  pre { background: #0d0d0d; padding: 12px; border-radius: 10px; white-space: pre-wrap; font-size: 13px; line-height: 1.5; margin-top: 12px; border: 1px solid #2b2b2b; }
   .hide { display: none; }
 </style>
 </head>
@@ -35,20 +35,20 @@
     <input id="qz" type="number" step="any" value="-1">
   </div>
   <label>Ось:</label>
-  <div class="btns" id="q-ax">
+  <div class="btns">
     <button class="b" onclick="sel('qax','X',this)">X (i)</button>
     <button class="b sel" onclick="sel('qax','Y',this)">Y (j)</button>
     <button class="b" onclick="sel('qax','Z',this)">Z (k)</button>
   </div>
   <label>Угол:</label>
-  <div class="btns" id="q-ang">
+  <div class="btns">
     <button class="b" onclick="sel('qang',90,this)">+90°</button>
     <button class="b sel" onclick="sel('qang',-90,this)">-90°</button>
     <button class="b" onclick="sel('qang',180,this)">180°</button>
     <button class="b" onclick="sel('qang',60,this)">+60°</button>
     <button class="b" onclick="sel('qang',-60,this)">-60°</button>
   </div>
-  <button class="go" onclick="solveQ()">РЕШИТЬ</button>
+  <button class="go" onclick="solveQ()">РЕШИТЬ ПОДРОБНО</button>
   <pre id="out-q"></pre>
 </div>
 
@@ -60,18 +60,18 @@
   <label>Вершина C (x, y):</label>
   <div class="row"><input id="cx" type="number" step="any" value="1"><input id="cy" type="number" step="any" value="-2"></div>
   <label>Вокруг какой вершины:</label>
-  <div class="btns" id="t-piv">
+  <div class="btns">
     <button class="b sel" onclick="sel('tpiv','A',this)">A</button>
     <button class="b" onclick="sel('tpiv','B',this)">B</button>
     <button class="b" onclick="sel('tpiv','C',this)">C</button>
   </div>
   <label>Угол:</label>
-  <div class="btns" id="t-ang">
+  <div class="btns">
     <button class="b sel" onclick="sel('tang',90,this)">+90°</button>
     <button class="b" onclick="sel('tang',-90,this)">-90°</button>
     <button class="b" onclick="sel('tang',180,this)">180°</button>
   </div>
-  <button class="go" onclick="solveT()">РЕШИТЬ</button>
+  <button class="go" onclick="solveT()">РЕШИТЬ ПОДРОБНО</button>
   <pre id="out-t"></pre>
 </div>
 
@@ -113,6 +113,45 @@ function qmul(a, b) {
     a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0]
   ];
 }
+
+const MUL_TABLE = {
+  'ii': [-1, ''], 'jj': [-1, ''], 'kk': [-1, ''],
+  'ij': [1, 'k'], 'jk': [1, 'i'], 'ki': [1, 'j'],
+  'ji': [-1, 'k'], 'kj': [-1, 'i'], 'ik': [-1, 'j']
+};
+
+function expandTerms(a, b) {
+  // a, b are [s, x, y, z] -> returns {raw: string, evald: string}
+  const names = ['', 'i', 'j', 'k'];
+  let raw = [], evald = [];
+  for (let i = 0; i < 4; i++) {
+    if (Math.abs(a[i]) < 1e-9) continue;
+    for (let j = 0; j < 4; j++) {
+      if (Math.abs(b[j]) < 1e-9) continue;
+      const prod = a[i] * b[j];
+      const sym1 = names[i], sym2 = names[j];
+      const pair = sym1 + sym2;
+      const sgn = prod >= 0 ? '+' : '-';
+      const av = Math.abs(prod);
+      const coef = (pair && Math.abs(av - 1) < 1e-7) ? '' : fmt(av);
+      raw.push(`${sgn} ${coef}${pair}`);
+
+      let ev = prod, esym = pair;
+      if (sym1 && sym2) {
+        const [m, rsym] = MUL_TABLE[pair];
+        ev = prod * m;
+        esym = rsym;
+      }
+      const esgn = ev >= 0 ? '+' : '-';
+      const eav = Math.abs(ev);
+      const ecoef = (esym && Math.abs(eav - 1) < 1e-7) ? '' : fmt(eav);
+      evald.push(`${esgn} ${ecoef}${esym}`);
+    }
+  }
+  const clean = arr => arr.join(' ').replace(/^\+\s*/, '');
+  return { raw: clean(raw) || '0', evald: clean(evald) || '0' };
+}
+
 function solveQ() {
   const px = +document.getElementById('qx').value || 0;
   const py = +document.getElementById('qy').value || 0;
@@ -127,23 +166,53 @@ function solveQ() {
   const qc = [c, -s*u[0], -s*u[1], -s*u[2]];
   const qp = qmul(q, p);
   const res = qmul(qp, qc);
-  let txt = `1) p = ${fmtQ(...p)}\n`;
+
+  let txt = `Дано: P(${fmt(px)}, ${fmt(py)}, ${fmt(pz)}), ось ${st.qax} (${sym}), θ = ${ang}°\n`;
+  txt += `Формула: p' = q · p · q*\n\n`;
+  txt += `1) Точка как кватернион:\n   p = ${fmtQ(...p)}\n\n`;
+  txt += `2) Кватернион поворота (θ/2 = ${ang/2}°):\n`;
+
   if (Math.abs(Math.abs(ang) - 90) < 1e-7) {
     const sg = ang > 0 ? '+' : '-', sgc = ang > 0 ? '-' : '+';
-    const sc = Math.SQRT2;
-    txt += `   q = √2/2·(1 ${sg} ${sym}),  q* = √2/2·(1 ${sgc} ${sym})\n`;
-    txt += `2) q·p = √2/2·(${fmtQ(qp[0]*sc, qp[1]*sc, qp[2]*sc, qp[3]*sc)})\n`;
-    txt += `3) p' = 1/2·(${fmtQ(res[0]*2, res[1]*2, res[2]*2, res[3]*2)})\n`;
+    const sgNum = ang > 0 ? 1 : -1;
+    const qIn = [1, sgNum*u[0], sgNum*u[1], sgNum*u[2]];
+    const qcIn = [1, -sgNum*u[0], -sgNum*u[1], -sgNum*u[2]];
+    const qpIn = qmul(qIn, p);
+    const resIn = qmul(qpIn, qcIn);
+
+    txt += `   q  = cos(${ang/2}°) + sin(${ang/2}°)·${sym} = √2/2·(1 ${sg} ${sym})\n`;
+    txt += `   q* = √2/2·(1 ${sgc} ${sym})\n\n`;
+
+    const ex1 = expandTerms(qIn, p);
+    txt += `3) Находим q · p:\n`;
+    txt += `   q · p = √2/2 · (1 ${sg} ${sym}) · (${fmtQ(...p)}) =\n`;
+    txt += `   = √2/2 · (${ex1.raw}) =\n`;
+    txt += `   = √2/2 · (${ex1.evald}) =\n`;
+    txt += `   = √2/2 · (${fmtQ(...qpIn)})\n\n`;
+
+    const ex2 = expandTerms(qpIn, qcIn);
+    txt += `4) Домножаем справа на q*:\n`;
+    txt += `   p' = √2/2 · (${fmtQ(...qpIn)}) · √2/2 · (1 ${sgc} ${sym}) =\n`;
+    txt += `   = 1/2 · (${ex2.raw}) =\n`;
+    txt += `   = 1/2 · (${ex2.evald}) =\n`;
+    txt += `   = 1/2 · (${fmtQ(...resIn)}) =\n`;
+    txt += `   = ${fmtQ(...res)}\n`;
   } else {
-    txt += `   q = ${fmtQ(...q)}\n   q* = ${fmtQ(...qc)}\n`;
-    txt += `2) q·p = ${fmtQ(...qp)}\n`;
-    txt += `3) p' = ${fmtQ(...res)}\n`;
+    txt += `   q  = cos(${ang/2}°) + sin(${ang/2}°)·${sym} = ${fmtQ(...q)}\n`;
+    txt += `   q* = ${fmtQ(...qc)}\n\n`;
+    const ex1 = expandTerms(q, p);
+    txt += `3) q · p = (${fmtQ(...q)}) · (${fmtQ(...p)}) =\n`;
+    txt += `   = ${ex1.raw} =\n   = ${ex1.evald} = ${fmtQ(...qp)}\n\n`;
+    const ex2 = expandTerms(qp, qc);
+    txt += `4) p' = (q · p) · q* = (${fmtQ(...qp)}) · (${fmtQ(...qc)}) =\n`;
+    txt += `   = ${ex2.raw} =\n   = ${ex2.evald} = ${fmtQ(...res)}\n`;
   }
-  txt += `\n✅ ОТВЕТ: (${fmt(res[1])}, ${fmt(res[2])}, ${fmt(res[3])})`;
+  txt += `\n✅ ИТОГ: P'(${fmt(res[1])}, ${fmt(res[2])}, ${fmt(res[3])})`;
   document.getElementById('out-q').textContent = txt;
 }
+
 function mm(A, B) {
-  return A.map((r, i) => [0,1,2].map(j => r[0]*B[0][j] + r[1]*B[1][j] + r[2]*B[2][j]));
+  return A.map(r => [0,1,2].map(j => r[0]*B[0][j] + r[1]*B[1][j] + r[2]*B[2][j]));
 }
 function fm(M, name) {
   return name + ' =\n' + M.map(r => '[' + r.map(v => fmt(v).padStart(4)).join(' ') + ']').join('\n');
@@ -162,12 +231,29 @@ function solveT() {
   const Ti = [[1,0,x0],[0,1,y0],[0,0,1]];
   const RT = mm(R, T);
   const M = mm(Ti, RT);
-  let txt = fm(T, '1) T') + '\n' + fm(R, '2) R') + '\n' + fm(RT, '3) R·T') + '\n' + fm(Ti, '4) T⁻¹') + '\n' + fm(M, '5) M = T⁻¹·R·T') + '\n\n6) Точки:\n';
+
+  let txt = `Формула: P' = T⁻¹ · R · T · P\n`;
+  txt += `Центр поворота: ${st.tpiv}(${fmt(x0)}, ${fmt(y0)}), угол α = ${st.tang}°\n\n`;
+  txt += `1) Трансляция центра в начало координат:\n`;
+  txt += `   ${fmt(x0)} + tx = 0  =>  tx = ${fmt(-x0)}\n`;
+  txt += `   ${fmt(y0)} + ty = 0  =>  ty = ${fmt(-y0)}\n`;
+  txt += fm(T, 'T') + '\n\n';
+  txt += `2) Матрица поворота на ${st.tang}° (cos=${fmt(c)}, sin=${fmt(s)}):\n`;
+  txt += fm(R, 'R') + '\n\n';
+  txt += fm(RT, 'R·T') + '\n\n';
+  txt += `3) Обратная трансляция:\n`;
+  txt += fm(Ti, 'T⁻¹') + '\n\n';
+  txt += fm(M, 'M = T⁻¹·R·T') + '\n\n';
+  txt += `4) Умножаем M на вершины:\n`;
+
   ['A','B','C'].forEach(k => {
     const [x, y] = pts[k];
     const nx = M[0][0]*x + M[0][1]*y + M[0][2];
     const ny = M[1][0]*x + M[1][1]*y + M[1][2];
-    txt += `${k}' = (${fmt(nx)}, ${fmt(ny)})${k === st.tpiv ? ' (проверка!)' : ''}\n`;
+    txt += `${k}' = M·${k}(${fmt(x)}, ${fmt(y)}):\n`;
+    txt += `   x' = (${fmt(M[0][0])})·(${fmt(x)}) + (${fmt(M[0][1])})·(${fmt(y)}) + (${fmt(M[0][2])}) = ${fmt(nx)}\n`;
+    txt += `   y' = (${fmt(M[1][0])})·(${fmt(x)}) + (${fmt(M[1][1])})·(${fmt(y)}) + (${fmt(M[1][2])}) = ${fmt(ny)}\n`;
+    txt += `   => ${k}'(${fmt(nx)}, ${fmt(ny)})${k === st.tpiv ? '  [проверка: точка на месте!]' : ''}\n\n`;
   });
   document.getElementById('out-t').textContent = txt;
 }
