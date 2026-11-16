@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Решатель КГ</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #121212; color: #eee; margin: 0; padding: 14px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; background: #262626; color: #aaa; }
+  .tab.active { background: #3b82f6; color: #fff; }
+  .card { background: #1e1e1e; padding: 14px; border-radius: 12px; }
+  .row { display: flex; gap: 8px; margin-bottom: 10px; }
+  input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #121212; color: #fff; font-size: 16px; text-align: center; box-sizing: border-box; }
+  label { font-size: 12px; color: #999; display: block; margin-bottom: 4px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .b { flex: 1; min-width: 60px; padding: 10px; border: 1px solid #333; border-radius: 8px; background: #262626; color: #fff; font-size: 15px; cursor: pointer; }
+  .b.sel { background: #10b981; border-color: #10b981; color: #000; font-weight: bold; }
+  .go { width: 100%; padding: 13px; border: none; border-radius: 10px; background: #f59e0b; color: #000; font-size: 17px; font-weight: bold; cursor: pointer; margin-top: 4px; }
+  pre { background: #0d0d0d; padding: 12px; border-radius: 10px; white-space: pre-wrap; font-size: 13px; line-height: 1.45; margin-top: 12px; border: 1px solid #2b2b2b; }
+  .hide { display: none; }
+</style>
+</head>
+<body>
+<div class="tabs">
+  <button class="tab active" onclick="showTab('q', this)">🟨 Кватернион</button>
+  <button class="tab" onclick="showTab('t', this)">🟥 Треугольник</button>
+</div>
+
+<div id="tab-q" class="card">
+  <label>Точка P (x, y, z):</label>
+  <div class="row">
+    <input id="qx" type="number" step="any" value="-1">
+    <input id="qy" type="number" step="any" value="-1">
+    <input id="qz" type="number" step="any" value="-1">
+  </div>
+  <label>Ось:</label>
+  <div class="btns" id="q-ax">
+    <button class="b" onclick="sel('qax','X',this)">X (i)</button>
+    <button class="b sel" onclick="sel('qax','Y',this)">Y (j)</button>
+    <button class="b" onclick="sel('qax','Z',this)">Z (k)</button>
+  </div>
+  <label>Угол:</label>
+  <div class="btns" id="q-ang">
+    <button class="b" onclick="sel('qang',90,this)">+90°</button>
+    <button class="b sel" onclick="sel('qang',-90,this)">-90°</button>
+    <button class="b" onclick="sel('qang',180,this)">180°</button>
+    <button class="b" onclick="sel('qang',60,this)">+60°</button>
+    <button class="b" onclick="sel('qang',-60,this)">-60°</button>
+  </div>
+  <button class="go" onclick="solveQ()">РЕШИТЬ</button>
+  <pre id="out-q"></pre>
+</div>
+
+<div id="tab-t" class="card hide">
+  <label>Вершина A (x, y):</label>
+  <div class="row"><input id="ax" type="number" step="any" value="2"><input id="ay" type="number" step="any" value="4"></div>
+  <label>Вершина B (x, y):</label>
+  <div class="row"><input id="bx" type="number" step="any" value="3"><input id="by" type="number" step="any" value="2"></div>
+  <label>Вершина C (x, y):</label>
+  <div class="row"><input id="cx" type="number" step="any" value="1"><input id="cy" type="number" step="any" value="-2"></div>
+  <label>Вокруг какой вершины:</label>
+  <div class="btns" id="t-piv">
+    <button class="b sel" onclick="sel('tpiv','A',this)">A</button>
+    <button class="b" onclick="sel('tpiv','B',this)">B</button>
+    <button class="b" onclick="sel('tpiv','C',this)">C</button>
+  </div>
+  <label>Угол:</label>
+  <div class="btns" id="t-ang">
+    <button class="b sel" onclick="sel('tang',90,this)">+90°</button>
+    <button class="b" onclick="sel('tang',-90,this)">-90°</button>
+    <button class="b" onclick="sel('tang',180,this)">180°</button>
+  </div>
+  <button class="go" onclick="solveT()">РЕШИТЬ</button>
+  <pre id="out-t"></pre>
+</div>
+
+<script>
+const st = { qax: 'Y', qang: -90, tpiv: 'A', tang: 90 };
+function showTab(id, el) {
+  document.getElementById('tab-q').classList.toggle('hide', id !== 'q');
+  document.getElementById('tab-t').classList.toggle('hide', id !== 't');
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+function sel(key, val, el) {
+  st[key] = val;
+  el.parentElement.querySelectorAll('.b').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function fmt(v) {
+  if (Math.abs(v) < 1e-9) return '0';
+  if (Math.abs(v - Math.round(v)) < 1e-7) return String(Math.round(v));
+  return Number(v.toFixed(4)).toString();
+}
+function fmtQ(s, x, y, z) {
+  let out = '';
+  if (Math.abs(s) > 1e-9) out += fmt(s);
+  [['i', x], ['j', y], ['k', z]].forEach(([sym, val]) => {
+    if (Math.abs(val) < 1e-9) return;
+    const av = Math.abs(val);
+    const coef = Math.abs(av - 1) < 1e-7 ? '' : fmt(av);
+    if (!out) out += (val < 0 ? '-' : '') + coef + sym;
+    else out += (val > 0 ? ' + ' : ' - ') + coef + sym;
+  });
+  return out || '0';
+}
+function qmul(a, b) {
+  return [
+    a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
+    a[0]*b[1] + a[1]*b[0] + a[2]*b[3] - a[3]*b[2],
+    a[0]*b[2] - a[1]*b[3] + a[2]*b[0] + a[3]*b[1],
+    a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0]
+  ];
+}
+function solveQ() {
+  const px = +document.getElementById('qx').value || 0;
+  const py = +document.getElementById('qy').value || 0;
+  const pz = +document.getElementById('qz').value || 0;
+  const u = st.qax === 'X' ? [1,0,0] : (st.qax === 'Y' ? [0,1,0] : [0,0,1]);
+  const sym = st.qax === 'X' ? 'i' : (st.qax === 'Y' ? 'j' : 'k');
+  const ang = st.qang;
+  const hr = (ang / 2) * Math.PI / 180;
+  const c = Math.cos(hr), s = Math.sin(hr);
+  const p = [0, px, py, pz];
+  const q = [c, s*u[0], s*u[1], s*u[2]];
+  const qc = [c, -s*u[0], -s*u[1], -s*u[2]];
+  const qp = qmul(q, p);
+  const res = qmul(qp, qc);
+  let txt = `1) p = ${fmtQ(...p)}\n`;
+  if (Math.abs(Math.abs(ang) - 90) < 1e-7) {
+    const sg = ang > 0 ? '+' : '-', sgc = ang > 0 ? '-' : '+';
+    const sc = Math.SQRT2;
+    txt += `   q = √2/2·(1 ${sg} ${sym}),  q* = √2/2·(1 ${sgc} ${sym})\n`;
+    txt += `2) q·p = √2/2·(${fmtQ(qp[0]*sc, qp[1]*sc, qp[2]*sc, qp[3]*sc)})\n`;
+    txt += `3) p' = 1/2·(${fmtQ(res[0]*2, res[1]*2, res[2]*2, res[3]*2)})\n`;
+  } else {
+    txt += `   q = ${fmtQ(...q)}\n   q* = ${fmtQ(...qc)}\n`;
+    txt += `2) q·p = ${fmtQ(...qp)}\n`;
+    txt += `3) p' = ${fmtQ(...res)}\n`;
+  }
+  txt += `\n✅ ОТВЕТ: (${fmt(res[1])}, ${fmt(res[2])}, ${fmt(res[3])})`;
+  document.getElementById('out-q').textContent = txt;
+}
+function mm(A, B) {
+  return A.map((r, i) => [0,1,2].map(j => r[0]*B[0][j] + r[1]*B[1][j] + r[2]*B[2][j]));
+}
+function fm(M, name) {
+  return name + ' =\n' + M.map(r => '[' + r.map(v => fmt(v).padStart(4)).join(' ') + ']').join('\n');
+}
+function solveT() {
+  const pts = {
+    A: [+document.getElementById('ax').value || 0, +document.getElementById('ay').value || 0],
+    B: [+document.getElementById('bx').value || 0, +document.getElementById('by').value || 0],
+    C: [+document.getElementById('cx').value || 0, +document.getElementById('cy').value || 0]
+  };
+  const [x0, y0] = pts[st.tpiv];
+  const rad = st.tang * Math.PI / 180;
+  const c = Math.cos(rad), s = Math.sin(rad);
+  const T = [[1,0,-x0],[0,1,-y0],[0,0,1]];
+  const R = [[c,-s,0],[s,c,0],[0,0,1]];
+  const Ti = [[1,0,x0],[0,1,y0],[0,0,1]];
+  const RT = mm(R, T);
+  const M = mm(Ti, RT);
+  let txt = fm(T, '1) T') + '\n' + fm(R, '2) R') + '\n' + fm(RT, '3) R·T') + '\n' + fm(Ti, '4) T⁻¹') + '\n' + fm(M, '5) M = T⁻¹·R·T') + '\n\n6) Точки:\n';
+  ['A','B','C'].forEach(k => {
+    const [x, y] = pts[k];
+    const nx = M[0][0]*x + M[0][1]*y + M[0][2];
+    const ny = M[1][0]*x + M[1][1]*y + M[1][2];
+    txt += `${k}' = (${fmt(nx)}, ${fmt(ny)})${k === st.tpiv ? ' (проверка!)' : ''}\n`;
+  });
+  document.getElementById('out-t').textContent = txt;
+}
+</script>
+</body>
+</html>
